@@ -30,7 +30,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/server.o
 
 OBJS_KCSAN = \
   $K/start.o \
@@ -119,7 +120,7 @@ endif
 
 LDFLAGS = -z max-page-size=4096
 
-$K/kernel: $(OBJS) $(OBJS_KCSAN) $K/kernel.ld $U/initcode
+$K/kernel: $(OBJS) $(OBJS_KCSAN) $K/kernel.ld $U/initcode $U/ninitcode
 	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) $(OBJS_KCSAN)
 	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
@@ -135,6 +136,12 @@ $U/initcode: $U/initcode.S
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/initcode.out $U/initcode.o
 	$(OBJCOPY) -S -O binary $U/initcode.out $U/initcode
 	$(OBJDUMP) -S $U/initcode.o > $U/initcode.asm
+
+$U/ninitcode: $U/ninitcode.S
+	$(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -Ikernel -c $U/ninitcode.S -o $U/ninitcode.o
+	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/ninitcode.out $U/ninitcode.o
+	$(OBJCOPY) -S -O binary $U/ninitcode.out $U/ninitcode
+	$(OBJDUMP) -S $U/ninitcode.o > $U/ninitcode.asm
 
 tags: $(OBJS) _init
 	etags *.S *.c
@@ -188,8 +195,9 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-
-
+	$U/_ninit\
+	$U/_addre\
+	
 
 
 ifeq ($(LAB),$(filter $(LAB), lock))
@@ -247,12 +255,6 @@ UPROGS += \
 	$U/_bigfile
 endif
 
-
-
-ifeq ($(LAB),net)
-UPROGS += \
-	$U/_nettests
-endif
 
 UEXTRA=
 ifeq ($(LAB),util)

@@ -7,6 +7,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 sys_exit(void)
 {
@@ -21,6 +22,23 @@ uint64
 sys_getpid(void)
 {
   return myproc()->pid;
+}
+
+uint64
+sys_nuid(void)
+{
+  struct proc *p = myproc();
+  uint64 r;
+
+  if(argaddr(0, &r) < 0)
+    return -1;
+
+  if (1) // strcmp(p-uid)...
+  {
+    return(copyout(p->pagetable,r,p->name,30));
+    return 0;
+  }
+  return -1;
 }
 
 uint64

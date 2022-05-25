@@ -104,12 +104,11 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
-#ifdef LAB_NET
-extern uint64 sys_connect(void);
-#endif
-#ifdef LAB_PGTBL
-extern uint64 sys_pgaccess(void);
-#endif
+extern uint64 sys_addre(void);
+extern uint64 sys_effre(void);
+extern uint64 sys_remre(void);
+extern uint64 sys_restr(void);
+extern uint64 sys_nuid(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -133,15 +132,12 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-#ifdef LAB_NET
-[SYS_connect] sys_connect,
-#endif
-#ifdef LAB_PGTBL
-[SYS_pgaccess] sys_pgaccess,
-#endif
+[SYS_addre]   sys_addre,
+[SYS_effre]   sys_effre,
+[SYS_remre]   sys_remre,
+[SYS_restr]   sys_restr,
+[SYS_nuid]    sys_nuid,
 };
-
-
 
 void
 syscall(void)

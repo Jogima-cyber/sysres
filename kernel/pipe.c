@@ -4,7 +4,7 @@
 #include "param.h"
 #include "spinlock.h"
 #include "proc.h"
-#include "fs.h"
+//#include "fs.h"
 #include "sleeplock.h"
 #include "file.h"
 
@@ -18,6 +18,23 @@ struct pipe {
   int readopen;   // read fd is still open
   int writeopen;  // write fd is still open
 };
+
+void pip_init_lab(label l)
+{
+  int i,j;
+  struct proc *p = myproc();
+
+  for (i=0;i<=3;i++)
+  {
+    for (j=0;j<=7;j++)
+    {
+      strncpy(l[i][j],"",UIDSIZE);
+    }
+  };
+
+  strncpy(l[0][0],p->uid,UIDSIZE);
+  strncpy(l[0][1],p->uid,UIDSIZE);
+}
 
 int
 pipealloc(struct file **f0, struct file **f1)
@@ -43,6 +60,9 @@ pipealloc(struct file **f0, struct file **f1)
   (*f1)->readable = 0;
   (*f1)->writable = 1;
   (*f1)->pipe = pi;
+
+  pip_init_lab((*f0)->ip->label);
+  pip_init_lab((*f1)->ip->label);
   return 0;
 
  bad:

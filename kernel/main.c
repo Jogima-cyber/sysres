@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "net.h"
 
 volatile static int started = 0;
 
@@ -34,8 +35,15 @@ main()
 #ifdef LAB_NET
     pci_init();
     sockinit();
-#endif    
-    userinit();      // first user process
+#endif
+    initserver();
+    // <struct mbuf m;
+    //   m.next = 0;
+    //   m.head = 0;
+    //   strncpy(m.buf, "hello", 5);
+    //   m.len = 5;
+    // uint32 addr = (10 << 24) | (0 << 16) | (2 << 8) | (2 << 0);
+    // net_tx_udp(&m, addr, 2000, 26099);>
 #ifdef KCSAN
     kcsaninit();
 #endif

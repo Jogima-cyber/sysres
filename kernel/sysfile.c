@@ -11,10 +11,36 @@
 #include "stat.h"
 #include "spinlock.h"
 #include "proc.h"
-#include "fs.h"
+//#include "fs.h"
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "labels.c"
+
+// Test for authorization 
+int autho(struct inode *ip)
+{
+  // return 1;
+  char e_r[7][UIDSIZE] = {"","","","","","",""};
+  effective_readers(e_r,ip->label);
+
+  char uid[UIDSIZE];
+  strncpy(uid,myproc()->uid,UIDSIZE);
+  int i;
+  int b = 0;
+
+  if (ip->inum <= 1)
+    return 1;
+
+  for (i=0;i<=6;i++)
+  {
+    if (strcmp(e_r[i],uid) == 0)
+      b = 1;
+  }
+  
+  return b;
+}
+
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -74,8 +100,13 @@ sys_read(void)
   uint64 p;
 
   if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
-    return -1;
-  return fileread(f, p, n);
+      return -1;
+  
+  // struct inode *ip = f->ip;
+  // if (autho(ip))
+      return fileread(f, p, n);
+
+  return -1;
 }
 
 uint64
@@ -88,7 +119,11 @@ sys_write(void)
   if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
     return -1;
 
-  return filewrite(f, p, n);
+  // struct inode *ip = f->ip;
+  // if (autho(ip))
+    return filewrite(f, p, n);
+  
+  return -1;
 }
 
 uint64
@@ -99,9 +134,19 @@ sys_close(void)
 
   if(argfd(0, &fd, &f) < 0)
     return -1;
+  
+  // struct inode *ip = f->ip;
+  // if (autho(ip))
+  // {
+  //   myproc()->ofile[fd] = 0;
+  //   fileclose(f);
+  //   return 0;
+  // }
+
   myproc()->ofile[fd] = 0;
   fileclose(f);
   return 0;
+  return -1;
 }
 
 uint64
@@ -112,7 +157,12 @@ sys_fstat(void)
 
   if(argfd(0, 0, &f) < 0 || argaddr(1, &st) < 0)
     return -1;
-  return filestat(f, st);
+  
+  struct inode *ip = f->ip;
+  if (autho(ip))
+    return filestat(f, st);
+  
+  return -1;
 }
 
 // Create the path new as a link to the same inode as old.
@@ -131,30 +181,30 @@ sys_link(void)
     return -1;
   }
 
-  ilock(ip);
-  if(ip->type == T_DIR){
-    iunlockput(ip);
-    end_op();
-    return -1;
-  }
+    ilock(ip);
+    if(ip->type == T_DIR){
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
 
-  ip->nlink++;
-  iupdate(ip);
-  iunlock(ip);
+    ip->nlink++;
+    iupdate(ip);
+    iunlock(ip);
 
-  if((dp = nameiparent(new, name)) == 0)
-    goto bad;
-  ilock(dp);
-  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
+    if((dp = nameiparent(new, name)) == 0)
+      goto bad;
+    ilock(dp);
+    if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
+      iunlockput(dp);
+      goto bad;
+    }
     iunlockput(dp);
-    goto bad;
-  }
-  iunlockput(dp);
-  iput(ip);
+    iput(ip);
 
-  end_op();
+    end_op();
 
-  return 0;
+    return 0;
 
 bad:
   ilock(ip);
@@ -198,39 +248,39 @@ sys_unlink(void)
     return -1;
   }
 
-  ilock(dp);
+    ilock(dp);
 
-  // Cannot unlink "." or "..".
-  if(namecmp(name, ".") == 0 || namecmp(name, "..") == 0)
-    goto bad;
+    // Cannot unlink "." or "..".
+    if(namecmp(name, ".") == 0 || namecmp(name, "..") == 0)
+      goto bad;
 
-  if((ip = dirlookup(dp, name, &off)) == 0)
-    goto bad;
-  ilock(ip);
+    if((ip = dirlookup(dp, name, &off)) == 0)
+      goto bad;
+    ilock(ip);
 
-  if(ip->nlink < 1)
-    panic("unlink: nlink < 1");
-  if(ip->type == T_DIR && !isdirempty(ip)){
+    if(ip->nlink < 1)
+      panic("unlink: nlink < 1");
+    if(ip->type == T_DIR && !isdirempty(ip)){
+      iunlockput(ip);
+      goto bad;
+    }
+
+    memset(&de, 0, sizeof(de));
+    if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+      panic("unlink: writei");
+    if(ip->type == T_DIR){
+      dp->nlink--;
+      iupdate(dp);
+    }
+    iunlockput(dp);
+
+    ip->nlink--;
+    iupdate(ip);
     iunlockput(ip);
-    goto bad;
-  }
 
-  memset(&de, 0, sizeof(de));
-  if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
-    panic("unlink: writei");
-  if(ip->type == T_DIR){
-    dp->nlink--;
-    iupdate(dp);
-  }
-  iunlockput(dp);
+    end_op();
 
-  ip->nlink--;
-  iupdate(ip);
-  iunlockput(ip);
-
-  end_op();
-
-  return 0;
+    return 0;
 
 bad:
   iunlockput(dp);
@@ -243,6 +293,8 @@ create(char *path, short type, short major, short minor)
 {
   struct inode *ip, *dp;
   char name[DIRSIZ];
+  int i,j;
+  struct proc *p = myproc();
 
   if((dp = nameiparent(path, name)) == 0)
     return 0;
@@ -252,6 +304,19 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
+
+    for (i=0;i<=3;i++)
+    {
+      for (j=0;j<=7;j++)
+      {
+        strncpy(ip->label[i][j],"",UIDSIZE);
+      }
+    };
+
+    strncpy(ip->label[0][0],p->uid,UIDSIZE);
+    strncpy(ip->label[0][1],p->uid,UIDSIZE);
+    strncpy(ip->label[0][1],"gasp",UIDSIZE);
+
     if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
       return ip;
     iunlockput(ip);
@@ -330,7 +395,9 @@ sys_open(void)
     return -1;
   }
 
-  if(ip->type == T_DEVICE){
+  if (autho(ip))
+  {
+    if(ip->type == T_DEVICE){
     f->type = FD_DEVICE;
     f->major = ip->major;
   } else {
@@ -349,6 +416,12 @@ sys_open(void)
   end_op();
 
   return fd;
+  };
+
+  iunlock(ip);
+  end_op();
+  return -1;
+  
 }
 
 uint64
@@ -399,17 +472,27 @@ sys_chdir(void)
     end_op();
     return -1;
   }
-  ilock(ip);
-  if(ip->type != T_DIR){
-    iunlockput(ip);
+
+  // if (autho(ip))
+  // {
+
+    ilock(ip);
+    if(ip->type != T_DIR){
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    iunlock(ip);
+    iput(p->cwd);
     end_op();
-    return -1;
-  }
-  iunlock(ip);
-  iput(p->cwd);
+    p->cwd = ip;
+    return 0;
+
+  // }
+
   end_op();
-  p->cwd = ip;
-  return 0;
+  return -1;
+
 }
 
 uint64
@@ -485,30 +568,151 @@ sys_pipe(void)
   return 0;
 }
 
-
-#ifdef LAB_NET
-int
-sys_connect(void)
+uint64
+sys_addre(void)
 {
   struct file *f;
-  int fd;
-  uint32 raddr;
-  uint32 rport;
-  uint32 lport;
+  char r[UIDSIZE];
+  int i,j;
+  int pass = 1;
+  
+  char uid[UIDSIZE];
+  strncpy(uid,myproc()->uid,UIDSIZE);
 
-  if (argint(0, (int*)&raddr) < 0 ||
-      argint(1, (int*)&lport) < 0 ||
-      argint(2, (int*)&rport) < 0) {
+  if(argfd(1, 0, &f) < 0 || argstr(0, r, UIDSIZE) < 0)
     return -1;
+
+  struct inode *ip = f->ip;
+  if (autho(ip))
+  {
+    for (i=0;i<=3;i++)
+    {
+      if (strcmp(ip->label[i][0],uid) == 0)
+      {
+        for (j=1;j<=7;j++)
+        {
+          if (strcmp(ip->label[i][j],r) == 0)
+          {
+            pass = 0;
+          };
+        }
+        if (pass)
+        {
+          for (j=1;j<=7;j++)
+          {
+            if (strcmp(ip->label[i][j],"") == 0)
+            {
+              ilock(ip);
+              strncpy(ip->label[i][j],r,UIDSIZE);
+              iunlock(ip);
+              return 0;
+            };
+          }
+          return -1;
+        }
+      }
+    }
+  return 0;
   }
-
-  if(sockalloc(&f, raddr, lport, rport) < 0)
-    return -1;
-  if((fd=fdalloc(f)) < 0){
-    fileclose(f);
-    return -1;
-  }
-
-  return fd;
+  return -1;
 }
-#endif
+
+uint64
+sys_remre(void)
+{
+  struct file *f;
+  char r[UIDSIZE];
+  int i,j;
+  
+  char uid[UIDSIZE];
+  strncpy(uid,myproc()->uid,UIDSIZE);
+
+  if(argfd(1, 0, &f) < 0 || argstr(0, r, UIDSIZE) < 0)
+    return -1;
+
+  struct inode *ip = f->ip;
+  if (autho(ip))
+  {
+    for (i=0;i<=3;i++)
+    {
+      if (strcmp(ip->label[i][0],uid) == 0)
+      {
+        for (j=1;j<=7;j++)
+        {
+          if (strcmp(ip->label[i][j],r) == 0)
+          {
+            ilock(ip);
+            strncpy(ip->label[i][j],"",UIDSIZE);
+            iunlock(ip);
+            break;
+          };
+        }
+      };
+      break;
+    }
+  return 0;
+  }
+  return -1;
+}
+
+uint64
+sys_effre(void)
+{
+  struct file *f;
+  struct proc *p = myproc();
+  uint64 r;
+  char kr[7][30];
+
+  if(argfd(0, 0, &f) < 0 || argaddr(1, &r) < 0)
+    return -1;
+
+  struct inode *ip = f->ip;
+
+  if (autho(ip))
+  {
+    effective_readers((char (*)[30]) kr,ip->label);
+    return(copyout(p->pagetable,r,(char *) &kr,sizeof(kr)));
+  }
+  return -1;
+}
+
+uint64
+sys_restr(void)
+{
+  struct file *f;
+  char r[UIDSIZE];
+  int i;
+  int pass = 1;
+  
+  char uid[UIDSIZE];
+  strncpy(uid,myproc()->uid,UIDSIZE);
+
+  if(argfd(1, 0, &f) < 0 || argstr(0, r, UIDSIZE) < 0)
+    return -1;
+
+  struct inode *ip = f->ip;
+  if (autho(ip))
+  {
+    for (i=0;i<=3;i++)
+    {
+      if (strcmp(ip->label[i][0],r) == 0)
+          pass = 0;
+    }
+    if (pass)
+    {
+      for (i=0;i<=3;i++)
+      {
+        if (strcmp(ip->label[i][0],"") == 0)
+          {
+            ilock(ip);
+            strncpy(ip->label[i][0],r,UIDSIZE);
+            strncpy(ip->label[i][1],r,UIDSIZE);
+            iunlock(ip);
+            return 0;
+          };
+      }
+      return -1;        
+    }
+  };
+  return -1;
+}

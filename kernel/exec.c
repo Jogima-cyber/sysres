@@ -12,7 +12,7 @@ static int loadseg(pde_t *pgdir, uint64 addr, struct inode *ip, uint offset, uin
 int
 exec(char *path, char **argv)
 {
-  char *s, *last;
+  // char *s,*last;
   int i, off;
   uint64 argc, sz = 0, sp, ustack[MAXARG], stackbase;
   struct elfhdr elf;
@@ -20,7 +20,6 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
-
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -103,11 +102,20 @@ exec(char *path, char **argv)
   p->trapframe->a1 = sp;
 
   // Save program name for debugging.
-  for(last=s=path; *s; s++)
-    if(*s == '/')
-      last = s+1;
-  safestrcpy(p->name, last, sizeof(p->name));
-    
+  // for(last=s=path; *s; s++)
+  //   if(*s == '/')
+  //     last = s+1;
+
+  if (strcmp(path,"sh") == 0)
+  {
+    char uid[30] = "";
+    safestrcpy(uid, p->name, sizeof(p->uid));
+    // panic(uid);
+    safestrcpy(p->uid, uid, sizeof(p->uid));
+  }
+  // safestrcpy(p->uid, "", sizeof(p->uid));
+  // safestrcpy(p->name, last, sizeof(p->name));
+  
   // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;

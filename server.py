@@ -9,5 +9,6 @@ sock.bind(addr)
 while True:
     buf, raddr = sock.recvfrom(4096)
     print(buf.decode("utf-8"), file=sys.stderr)
+    print(raddr)
     if buf:
         sent = sock.sendto(b'this is the host!', raddr)

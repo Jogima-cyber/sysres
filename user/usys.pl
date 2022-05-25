@@ -36,5 +36,9 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
-entry("connect");
-entry("pgaccess");
+entry("addre");
+entry("remre");
+entry("effre");
+entry("restr");
+entry("nuid");
+

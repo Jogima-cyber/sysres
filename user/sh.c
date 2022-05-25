@@ -127,15 +127,26 @@ runcmd(struct cmd *cmd)
       runcmd(bcmd->cmd);
     break;
   }
+  // printf("END");
   exit(0);
 }
 
 int
 getcmd(char *buf, int nbuf)
 {
-  fprintf(2, "$ ");
+  fprintf(2, "$ ", buf);
   memset(buf, 0, nbuf);
-  gets(buf, nbuf);
+  //gets(buf, nbuf);
+  int i, cc;
+  char c;
+  cc = read(0, buf, nbuf);
+  for(i=0; i+1 < cc; i++){
+    c = buf[i];
+    fprintf(2, "%c", c);
+    if(c == '\n' || c == '\r')
+      break;
+  }
+  buf[i] = '\0';
   if(buf[0] == 0) // EOF
     return -1;
   return 0;
@@ -145,18 +156,19 @@ int
 main(void)
 {
   static char buf[100];
-  int fd;
+  //int fd;
 
   // Ensure that three file descriptors are open.
-  while((fd = open("console", O_RDWR)) >= 0){
+  /*while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
       close(fd);
       break;
     }
-  }
+  }*/
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
+    // fprintf(2,"uid : %s\n",myproc()->uid);
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n
@@ -167,6 +179,7 @@ main(void)
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait(0);
+    fprintf(2,"@");
   }
   exit(0);
 }

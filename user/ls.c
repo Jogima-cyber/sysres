@@ -60,7 +60,7 @@ ls(char *path)
       memmove(p, de.name, DIRSIZ);
       p[DIRSIZ] = 0;
       if(stat(buf, &st) < 0){
-        printf("ls: cannot stat %s\n", buf);
+        // printf("ls: cannot stat %s\n", buf);
         continue;
       }
       printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
@@ -81,5 +81,6 @@ main(int argc, char *argv[])
   }
   for(i=1; i<argc; i++)
     ls(argv[i]);
+
   exit(0);
 }

@@ -119,14 +119,14 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-
+  
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
   }
-
+  
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -134,7 +134,6 @@ found:
     release(&p->lock);
     return 0;
   }
-
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -155,6 +154,7 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+  p->uid[0] = 0;
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -177,7 +177,6 @@ proc_pagetable(struct proc *p)
   pagetable = uvmcreate();
   if(pagetable == 0)
     return 0;
-
   // map the trampoline code (for system call return)
   // at the highest user virtual address.
   // only the supervisor uses it, on the way
@@ -187,7 +186,6 @@ proc_pagetable(struct proc *p)
     uvmfree(pagetable, 0);
     return 0;
   }
-
   // map the trapframe just below TRAMPOLINE, for trampoline.S.
   if(mappages(pagetable, TRAPFRAME, PGSIZE,
               (uint64)(p->trapframe), PTE_R | PTE_W) < 0){
@@ -221,6 +219,16 @@ uchar initcode[] = {
   0x00, 0x00, 0x00, 0x00
 };
 
+uchar ninitcode[] = {
+  0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02,
+  0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x45, 0x02,
+  0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00,
+  0x93, 0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00,
+  0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x6e, 0x69, 0x6e,
+  0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00
+};
+
 // Set up first user process.
 void
 userinit(void)
@@ -240,6 +248,33 @@ userinit(void)
   p->trapframe->sp = PGSIZE;  // user stack pointer
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
+  p->cwd = namei("/");
+
+  p->state = RUNNABLE;
+
+  release(&p->lock);
+}
+
+void
+nuserinit(char name[30], struct file *f)
+{
+
+  struct proc *p;
+
+  p = allocproc();
+  
+  // allocate one user page and copy init's instructions
+  // and data into it.
+  uvminit(p->pagetable, ninitcode, sizeof(ninitcode));
+  p->sz = PGSIZE;
+
+  // prepare for the very first "return" from kernel to user.
+  p->trapframe->epc = 0;      // user program counter
+  p->trapframe->sp = PGSIZE;  // user stack pointer
+  p->ofile[0] = f;
+  // p->trapframe->a0 = (uint64) name;
+  safestrcpy(p->name, name, sizeof(p->name));
+  safestrcpy(p->uid, "", sizeof(p->uid));
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
@@ -302,6 +337,7 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+  safestrcpy(np->uid, p->uid, sizeof(p->uid));
 
   pid = np->pid;
 
@@ -439,7 +475,7 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  
+
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.

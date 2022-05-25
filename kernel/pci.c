@@ -30,7 +30,6 @@ pci_init()
     uint32 off = (bus << 16) | (dev << 11) | (func << 8) | (offset);
     volatile uint32 *base = ecam + off;
     uint32 id = base[0];
-    
     // 100e:8086 is an e1000
     if(id == 0x100e8086){
       // command and status register.
@@ -54,7 +53,7 @@ pci_init()
       // tell the e1000 to reveal its registers at
       // physical address 0x40000000.
       base[4+0] = e1000_regs;
-
+      
       e1000_init((uint32*)e1000_regs);
     }
   }

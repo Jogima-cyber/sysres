@@ -1,16 +1,19 @@
+#include "fs.h"
+#define BSIZE 2048  // block size
+
 struct file {
-#ifdef LAB_NET
+  #ifdef LAB_NET
   enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE, FD_SOCK } type;
-#else
+  #else
   enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
-#endif
+  #endif
   int ref; // reference count
   char readable;
   char writable;
   struct pipe *pipe; // FD_PIPE
   struct inode *ip;  // FD_INODE and FD_DEVICE
 #ifdef LAB_NET
-  struct sock *sock; // FD_SOCK
+  struct client *sock; // FD_SOCK
 #endif
   uint off;          // FD_INODE
   short major;       // FD_DEVICE
@@ -26,6 +29,7 @@ struct inode {
   uint inum;          // Inode number
   int ref;            // Reference count
   struct sleeplock lock; // protects everything below here
+  label label;        // Label
   int valid;          // inode has been read from disk?
 
   short type;         // copy of disk inode
@@ -45,4 +49,3 @@ struct devsw {
 extern struct devsw devsw[];
 
 #define CONSOLE 1
-#define STATS   2

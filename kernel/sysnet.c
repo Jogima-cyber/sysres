@@ -24,7 +24,10 @@ struct sock {
 };
 
 static struct spinlock lock;
-static struct sock *sockets;
+//static struct sock *sockets;
+
+//127.0.0.1
+//static uint32 localhost_addr = (127 << 24) | (0 << 16) | (0 << 8) | (1 << 0);
 
 void
 sockinit(void)
@@ -32,11 +35,26 @@ sockinit(void)
   initlock(&lock, "socktbl");
 }
 
-int
+/*void empty_ip(struct inode *ip)
+{
+  int i,j;
+  label l;
+
+  for (i=0;i<=3;i++)
+  {
+      for (j=0;j<=7;j++)
+      {
+          strncpy(l[i][j],"",UIDSIZE);
+      }
+  };
+  strncpy(l[0][1],"ls",UIDSIZE);
+  labecpy(l,(ip->label));
+}*/
+
+/*int
 sockalloc(struct file **f, uint32 raddr, uint16 lport, uint16 rport)
 {
   struct sock *si, *pos;
-
   si = 0;
   *f = 0;
   if ((*f = filealloc()) == 0)
@@ -54,6 +72,8 @@ sockalloc(struct file **f, uint32 raddr, uint16 lport, uint16 rport)
   (*f)->readable = 1;
   (*f)->writable = 1;
   (*f)->sock = si;
+  (*f)->ip = kalloc();
+  empty_ip((*f)->ip);
 
   // add to list of sockets
   acquire(&lock);
@@ -78,12 +98,12 @@ bad:
   if (*f)
     fileclose(*f);
   return -1;
-}
+}*/
 
 void
-sockclose(struct sock *si)
+sockclose(struct client *si)
 {
-  struct sock **pos;
+  /*struct client **pos;
   struct mbuf *m;
 
   // remove from list of sockets
@@ -104,10 +124,10 @@ sockclose(struct sock *si)
     mbuffree(m);
   }
 
-  kfree((char*)si);
+  kfree((char*)si);*/
 }
 
-int
+/*int
 sockread(struct sock *si, uint64 addr, int n)
 {
   struct proc *pr = myproc();
@@ -152,7 +172,7 @@ sockwrite(struct sock *si, uint64 addr, int n)
   }
   net_tx_udp(m, si->raddr, si->lport, si->rport);
   return n;
-}
+}*/
 
 // called by protocol handler layer to deliver UDP packets
 void
@@ -163,23 +183,40 @@ sockrecvudp(struct mbuf *m, uint32 raddr, uint16 lport, uint16 rport)
   // any sleeping reader. Free the mbuf if there are no sockets
   // registered to handle it.
   //
-  struct sock *si;
-
+  srv_sockrecvudp(m, raddr, lport, rport);
+  /*struct sock *si;
+  struct sock *localhost = 0;
   acquire(&lock);
   si = sockets;
+  
   while (si) {
     if (si->raddr == raddr && si->lport == lport && si->rport == rport)
       goto found;
+    if (si->raddr == localhost_addr)
+      localhost = si;
     si = si->next;
   }
+
+  if(localhost)
+    goto localhost;
+
   release(&lock);
   mbuffree(m);
   return;
 
 found:
   acquire(&si->lock);
+  printf("found\n");
   mbufq_pushtail(&si->rxq, m);
   wakeup(&si->rxq);
   release(&si->lock);
   release(&lock);
+  return;
+
+localhost:
+  acquire(&localhost->lock);
+  mbufq_pushtail(&localhost->rxq, m);
+  wakeup(&localhost->rxq);
+  release(&localhost->lock);
+  release(&lock);*/
 }

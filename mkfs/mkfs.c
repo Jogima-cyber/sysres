@@ -42,6 +42,36 @@ uint ialloc(ushort type);
 void iappend(uint inum, void *p, int n);
 void die(const char *);
 
+void labecpy(label dst,label src)
+{
+    int i,j;
+
+    for (i=0;i<=3;i++)
+    {
+        for (j=0;j<=7;j++)
+        {
+            strncpy(dst[i][j],src[i][j],UIDSIZE);
+        }
+    }
+}
+
+void empty_dip(struct dinode dip)
+{
+  int i,j;
+  label l;
+
+  for (i=0;i<=3;i++)
+  {
+      for (j=0;j<=7;j++)
+      {
+          strncpy(l[i][j],"",UIDSIZE);
+      }
+  };
+
+  labecpy(l,(dip.label));
+}
+
+
 // convert to intel byte order
 ushort
 xshort(ushort x)
@@ -74,6 +104,8 @@ main(int argc, char *argv[])
   char buf[BSIZE];
   struct dinode din;
 
+  empty_dip(din);
+
 
   static_assert(sizeof(int) == 4, "Integers must be 4 bytes!");
 
@@ -82,6 +114,7 @@ main(int argc, char *argv[])
     exit(1);
   }
 
+  //printf("Size of dinode : %lu \n",sizeof(struct dinode));
   assert((BSIZE % sizeof(struct dinode)) == 0);
   assert((BSIZE % sizeof(struct dirent)) == 0);
 
@@ -223,6 +256,8 @@ ialloc(ushort type)
   uint inum = freeinode++;
   struct dinode din;
 
+  empty_dip(din);
+
   bzero(&din, sizeof(din));
   din.type = xshort(type);
   din.nlink = xshort(1);
@@ -259,6 +294,8 @@ iappend(uint inum, void *xp, int n)
   uint indirect[NINDIRECT];
   uint x;
 
+  empty_dip(din);
+  
   rinode(inum, &din);
   off = xint(din.size);
   // printf("append inum %d at off %d sz %d\n", inum, off, n);

@@ -193,7 +193,6 @@ net_tx_ip(struct mbuf *m, uint8 proto, uint32 dip)
   iphdr->ip_len = htons(m->len);
   iphdr->ip_ttl = 100;
   iphdr->ip_sum = in_cksum((unsigned char *)iphdr, sizeof(*iphdr));
-
   // now on to the ethernet layer
   net_tx_eth(m, ETHTYPE_IP);
 }
@@ -207,11 +206,12 @@ net_tx_udp(struct mbuf *m, uint32 dip,
 
   // put the UDP header
   udphdr = mbufpushhdr(m, *udphdr);
+  //  printf("hello %d\n", udphdr);
   udphdr->sport = htons(sport);
   udphdr->dport = htons(dport);
   udphdr->ulen = htons(m->len);
   udphdr->sum = 0; // zero means no checksum is provided
-
+  //  printf("hello");
   // now on to the IP layer
   net_tx_ip(m, IPPROTO_UDP, dip);
 }

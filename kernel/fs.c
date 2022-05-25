@@ -8,6 +8,7 @@
 // This file contains the low-level file system manipulation
 // routines.  The (higher-level) system call implementations
 // are in sysfile.c.
+#define BSIZE 2048
 
 #include "types.h"
 #include "riscv.h"
@@ -17,9 +18,9 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "sleeplock.h"
-#include "fs.h"
 #include "buf.h"
 #include "file.h"
+
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
@@ -171,6 +172,19 @@ bfree(int dev, uint b)
 // dev, and inum.  One must hold ip->lock in order to
 // read or write that inode's ip->valid, ip->size, ip->type, &c.
 
+void empty_lab(label l)
+{
+  int i,j;
+
+  for (i=0;i<=3;i++)
+  {
+    for (j=0;j<=7;j++)
+    {
+      strncpy(l[i][j],"",UIDSIZE);
+    }
+  };
+}
+
 struct {
   struct spinlock lock;
   struct inode inode[NINODE];
@@ -190,7 +204,7 @@ iinit()
 static struct inode* iget(uint dev, uint inum);
 
 // Allocate an inode on device dev.
-// Mark it as allocated by  giving it type type.
+// Mark it as allocated by giving it type type.
 // Returns an unlocked but allocated and referenced inode.
 struct inode*
 ialloc(uint dev, short type)
@@ -205,6 +219,7 @@ ialloc(uint dev, short type)
     if(dip->type == 0){  // a free inode
       memset(dip, 0, sizeof(*dip));
       dip->type = type;
+      empty_lab(dip->label);
       log_write(bp);   // mark it allocated on the disk
       brelse(bp);
       return iget(dev, inum);
@@ -230,6 +245,7 @@ iupdate(struct inode *ip)
   dip->major = ip->major;
   dip->minor = ip->minor;
   dip->nlink = ip->nlink;
+  labecpy(dip->label,ip->label);
   dip->size = ip->size;
   memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
   log_write(bp);
@@ -303,6 +319,7 @@ ilock(struct inode *ip)
     ip->major = dip->major;
     ip->minor = dip->minor;
     ip->nlink = dip->nlink;
+    labecpy(dip->label,ip->label);
     ip->size = dip->size;
     memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
     brelse(bp);
@@ -522,6 +539,13 @@ int
 namecmp(const char *s, const char *t)
 {
   return strncmp(s, t, DIRSIZ);
+}
+
+// Compare 512 char strings
+int
+strcmp(const char *s, const char *t)
+{
+  return strncmp(s, t, 512);
 }
 
 // Look for a directory entry in a directory.

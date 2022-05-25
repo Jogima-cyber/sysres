@@ -179,6 +179,7 @@ clockintr()
 int
 devintr()
 {
+  
   uint64 scause = r_scause();
 
   if((scause & 0x8000000000000000L) &&

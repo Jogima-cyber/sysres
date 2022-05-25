@@ -8,9 +8,12 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct label;
+struct o_r;
 #ifdef LAB_NET
 struct mbuf;
 struct sock;
+struct client;
 #endif
 
 // bio.c
@@ -28,6 +31,7 @@ void            consputc(int);
 
 // exec.c
 int             exec(char*, char**);
+
 
 // file.c
 struct file*    filealloc(void);
@@ -57,6 +61,7 @@ int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
 void            itrunc(struct inode*);
+int             strcmp(const char*, const char*);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -108,6 +113,7 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+void            nuserinit(char name[30], struct file *f);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
@@ -228,9 +234,18 @@ void            net_tx_udp(struct mbuf*, uint32, uint16, uint16);
 
 // sysnet.c
 void            sockinit(void);
-int             sockalloc(struct file **, uint32, uint16, uint16);
-void            sockclose(struct sock *);
-int             sockread(struct sock *, uint64, int);
-int             sockwrite(struct sock *, uint64, int);
+//int             sockalloc(struct file **, uint32, uint16, uint16);
+void            sockclose(struct client *);
+//int             sockread(struct sock *, uint64, int);
+//int             sockwrite(struct sock *, uint64, int);
 void            sockrecvudp(struct mbuf*, uint32, uint16, uint16);
+
+//server.c
+void            srv_authentificate(char packet[128], uint32 raddr, uint16 lport, uint16 rport);
+void            initserver();
+void            server();
+int             sockread(struct client *si, uint64 addr, int n);
+int             sockwrite(struct client *si, uint64 addr, int n);
+int             sockalloc(struct file **f, struct client *n_cl);
+void            srv_sockrecvudp(struct mbuf *m, uint32 raddr, uint16 lport, uint16 rport);
 #endif
